@@ -939,7 +939,7 @@ Each extension should have its own conformance declaration and tests.
 
 ## 19. Initial implementation alignment
 
-The `rdf-prolog-roundtrip` package is the initial implementation experiment
+The `rdf-prolog-interchange` package is the initial implementation experiment
 from which this specification was extracted. At the publication date of this
 draft it implements:
 
@@ -999,8 +999,8 @@ Track through a Working Group.
   <https://www.w3.org/policies/process/#recs-and-notes>
 - RIF RDF and OWL Compatibility:
   <https://www.w3.org/TR/rif-rdf-owl/>
-- `rdf-prolog-roundtrip`, an existing implementation experiment:
-  <https://github.com/eyereasoner/rdf-prolog-roundtrip>
+- `rdf-prolog-interchange`, an existing implementation experiment:
+  <https://github.com/eyereasoner/rdf-prolog-interchange>
 
 ## 22. One-sentence definition
 

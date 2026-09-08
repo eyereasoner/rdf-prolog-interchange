@@ -22,9 +22,10 @@ adopted.
 
 - [EyeProlog](https://github.com/eyereasoner/eyeprolog) is the ISO Prolog
   reasoning brain, producing answers and inspectable proofs.
-- [rdf-prolog-roundtrip](https://github.com/eyereasoner/rdf-prolog-roundtrip)
-  implements the reversible RDF dataset to ISO Prolog boundary.
-- [RDF/Prolog Interchange 1.0](https://github.com/eyereasoner/rdf-prolog-roundtrip/blob/main/spec/index.md)
+- [rdf-prolog-interchange](https://github.com/eyereasoner/rdf-prolog-interchange)
+  implements the reversible interchange boundary between RDF datasets and ISO
+  Prolog.
+- [RDF/Prolog Interchange 1.0](https://github.com/eyereasoner/rdf-prolog-interchange/blob/main/spec/index.md)
   specifies that boundary independently of any implementation.
 
 ## The processing model

@@ -1,8 +1,8 @@
-# rdf-prolog-roundtrip
+# rdf-prolog-interchange
 
-Standalone RDF 1.2 <-> ISO Prolog quad-set roundtripping toolkit. It converts
-RDF dataset quads to ordinary `rdf/4` Prolog facts and ground `rdf/4` facts back
-to RDF.
+Standalone RDF 1.2 <-> ISO Prolog interchange toolkit. It reversibly converts
+RDF dataset quads to ordinary `rdf/4` Prolog facts and ground `rdf/4` facts
+back to RDF.
 The package contains no Prolog solver.
 
 The short position paper [RDF and Prolog: Two Standards-Based
@@ -153,7 +153,7 @@ import {
   compileRdfToProlog,
   extractRdfFromProlog,
   serializeRdfFromProlog,
-} from 'rdf-prolog-roundtrip';
+} from 'rdf-prolog-interchange';
 
 const facts = compileRdfToProlog(nquads);
 const nquadsAgain = extractRdfFromProlog(facts);

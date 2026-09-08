@@ -1,7 +1,7 @@
 {
-  "name": "rdf-prolog-roundtrip",
-  "version": "0.1.1",
-  "description": "Standalone RDF 1.2 <-> ISO Prolog roundtripping toolkit.",
+  "name": "rdf-prolog-interchange",
+  "version": "0.1.2",
+  "description": "Standalone RDF 1.2 <-> ISO Prolog interchange toolkit.",
   "type": "module",
   "main": "./src/index.mjs",
   "exports": "./src/index.mjs",
