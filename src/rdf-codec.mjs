@@ -1,4 +1,4 @@
-// Lossless RDF 1.2 <-> ordinary EyeProlog term encoding.
+// RPI-RDF12 Quad Profile <-> ordinary ISO Prolog term encoding.
 export const XSD_STRING = 'http://www.w3.org/2001/XMLSchema#string';
 export const RDF_LANG_STRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString';
 export const RDF_DIR_LANG_STRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString';
@@ -74,6 +74,7 @@ class NQuadsParser {
       }
     }
     if (this.take() !== '>') this.fail('unterminated IRI');
+    assertIri(value);
     return { kind: 'namedNode', value };
   }
 
@@ -162,8 +163,15 @@ export function fromRdfJsQuad(quad, scope = 'input') {
 }
 
 export function fromRdfJs(term, scope = 'input') {
-  if (term.termType === 'NamedNode') return { kind: 'namedNode', value: term.value };
-  if (term.termType === 'BlankNode') return { kind: 'blankNode', scope, value: term.value };
+  if (term.termType === 'NamedNode') {
+    assertIri(term.value);
+    return { kind: 'namedNode', value: term.value };
+  }
+  if (term.termType === 'BlankNode') {
+    assertText(scope, 'blank-node scope');
+    assertText(term.value, 'blank-node label');
+    return { kind: 'blankNode', scope, value: term.value };
+  }
   if (term.termType === 'DefaultGraph') return { kind: 'defaultGraph' };
   if (term.termType === 'Literal') return { kind: 'literal', value: term.value, language: term.language, direction: term.direction ?? '', datatype: term.datatype.value };
   if (term.termType === 'Quad') return { kind: 'triple', subject: fromRdfJs(term.subject, scope), predicate: fromRdfJs(term.predicate, scope), object: fromRdfJs(term.object, scope) };
@@ -171,15 +179,27 @@ export function fromRdfJs(term, scope = 'input') {
 }
 
 export function quadToEyeProlog(q, predicate = 'rdf') {
+  assertQuad(q);
   return `${predicate}(${toEyeProlog(q.subject)}, ${toEyeProlog(q.predicate)}, ${toEyeProlog(q.object)}, ${toEyeProlog(q.graph)}).`;
 }
 
 export function toEyeProlog(t) {
-  if (t.kind === 'namedNode') return `iri(${quote(t.value)})`;
-  if (t.kind === 'blankNode') return `bnode(${quote(t.scope)}, ${quote(t.value)})`;
+  if (t.kind === 'namedNode') {
+    assertIri(t.value);
+    return `iri(${quote(t.value)})`;
+  }
+  if (t.kind === 'blankNode') {
+    assertText(t.scope, 'blank-node scope');
+    assertText(t.value, 'blank-node label');
+    return `bnode(${quote(t.scope)}, ${quote(t.value)})`;
+  }
   if (t.kind === 'defaultGraph') return 'default_graph';
-  if (t.kind === 'triple') return `triple(${toEyeProlog(t.subject)}, ${toEyeProlog(t.predicate)}, ${toEyeProlog(t.object)})`;
+  if (t.kind === 'triple') {
+    assertTriple(t.subject, t.predicate, t.object);
+    return `triple(${toEyeProlog(t.subject)}, ${toEyeProlog(t.predicate)}, ${toEyeProlog(t.object)})`;
+  }
   if (t.kind === 'literal') {
+    assertLiteral(t);
     const annotation = t.language
       ? (t.direction ? `lang(${quote(t.language)}, ${t.direction})` : `lang(${quote(t.language)})`)
       : `datatype(${quote(t.datatype ?? XSD_STRING)})`;
@@ -195,13 +215,13 @@ export function eyePrologQuadToNQuad(term) {
 }
 
 export function quadToNQuad({ subject, predicate, object, graph }) {
-  assertTriple(subject, predicate, object);
-  if (!['namedNode', 'blankNode', 'defaultGraph'].includes(graph.kind)) throw new Error('invalid RDF graph');
+  assertQuad({ subject, predicate, object, graph });
   return `${toNQ(subject)} ${toNQ(predicate)} ${toNQ(object)}${graph.kind === 'defaultGraph' ? '' : ` ${toNQ(graph)}`} .`;
 }
 
 export function quadsToTurtle(quads) {
   for (const quad of quads) {
+    assertQuad(quad);
     if (quad.graph.kind !== 'defaultGraph') throw new Error('Turtle output cannot contain named graphs; use TriG or N-Quads');
   }
   const body = quads.map((q) => `${toNQ(q.subject)} ${toNQ(q.predicate)} ${toNQ(q.object)} .`).join('\n');
@@ -212,6 +232,7 @@ export function quadsToTrig(quads) {
   const defaults = [];
   const named = new Map();
   for (const quad of quads) {
+    assertQuad(quad);
     if (quad.graph.kind === 'defaultGraph') {
       defaults.push(quad);
       continue;
@@ -233,22 +254,40 @@ export function quadsToTrig(quads) {
 
 export function fromEyeProlog(t) {
   if (t?.type === 'atom' && t.name === 'default_graph') return { kind: 'defaultGraph' };
-  if (compound(t, 'iri', 1)) return { kind: 'namedNode', value: scalar(t.args[0], 'IRI') };
-  if (compound(t, 'bnode', 2)) return { kind: 'blankNode', scope: scalar(t.args[0], 'blank-node scope'), value: scalar(t.args[1], 'blank-node label') };
+  if (compound(t, 'iri', 1)) {
+    const value = textAtom(t.args[0], 'IRI');
+    assertIri(value);
+    return { kind: 'namedNode', value };
+  }
+  if (compound(t, 'bnode', 2)) {
+    return {
+      kind: 'blankNode',
+      scope: textAtom(t.args[0], 'blank-node scope'),
+      value: textAtom(t.args[1], 'blank-node label'),
+    };
+  }
   if (compound(t, 'triple', 3)) {
     const [subject, predicate, object] = t.args.map(fromEyeProlog);
     assertTriple(subject, predicate, object);
     return { kind: 'triple', subject, predicate, object };
   }
   if (compound(t, 'literal', 2)) {
-    const value = scalar(t.args[0], 'literal');
-    if (compound(t.args[1], 'lang', 1)) return { kind: 'literal', value, language: scalar(t.args[1].args[0], 'language').toLowerCase(), direction: '', datatype: RDF_LANG_STRING };
-    if (compound(t.args[1], 'lang', 2)) {
-      const direction = scalar(t.args[1].args[1], 'base direction').toLowerCase();
-      if (direction !== 'ltr' && direction !== 'rtl') throw new Error('base direction must be ltr or rtl');
-      return { kind: 'literal', value, language: scalar(t.args[1].args[0], 'language').toLowerCase(), direction, datatype: RDF_DIR_LANG_STRING };
+    const value = textAtom(t.args[0], 'literal');
+    if (compound(t.args[1], 'lang', 1)) {
+      const language = normalizedLanguage(textAtom(t.args[1].args[0], 'language'));
+      return { kind: 'literal', value, language, direction: '', datatype: RDF_LANG_STRING };
     }
-    if (compound(t.args[1], 'datatype', 1)) return { kind: 'literal', value, language: '', datatype: scalar(t.args[1].args[0], 'datatype') };
+    if (compound(t.args[1], 'lang', 2)) {
+      const language = normalizedLanguage(textAtom(t.args[1].args[0], 'language'));
+      const direction = textAtom(t.args[1].args[1], 'base direction');
+      if (direction !== 'ltr' && direction !== 'rtl') throw new Error('base direction must be ltr or rtl');
+      return { kind: 'literal', value, language, direction, datatype: RDF_DIR_LANG_STRING };
+    }
+    if (compound(t.args[1], 'datatype', 1)) {
+      const datatype = textAtom(t.args[1].args[0], 'datatype');
+      assertIri(datatype, 'datatype IRI');
+      return { kind: 'literal', value, language: '', datatype };
+    }
     throw new Error('literal annotation must be lang/1, lang/2, or datatype/1');
   }
   throw new Error(`term is not an RDF value: ${t?.name ?? typeof t}`);
@@ -259,21 +298,124 @@ function toNQ(t) {
   if (t.kind === 'blankNode') return `_:e${hex(t.scope)}_${hex(t.value)}`;
   if (t.kind === 'triple') return `<<( ${toNQ(t.subject)} ${toNQ(t.predicate)} ${toNQ(t.object)} )>>`;
   if (t.kind === 'literal') {
-    const q = `"${String(t.value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`;
+    const q = `"${escapeRdfString(t.value)}"`;
     if (t.language) return `${q}@${t.language}${t.direction ? `--${t.direction}` : ''}`;
     return (t.datatype ?? XSD_STRING) === XSD_STRING ? q : `${q}^^<${escapeIri(t.datatype)}>`;
   }
   throw new Error(`cannot serialize ${t.kind}`);
 }
-function quote(v) { return `'${String(v).replace(/'/g, "''").replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\t/g, '\\t')}'`; }
-function escapeIri(v) { return String(v).replace(/[<>"{}|^`\\\u0000-\u0020]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`); }
-function hex(v) { return Buffer.from(String(v), 'utf8').toString('hex'); }
+function quote(value) {
+  assertText(value, 'RDF text');
+  let escaped = '';
+  for (const character of value) {
+    const code = character.codePointAt(0);
+    if (character === "'") escaped += "''";
+    else if (character === '\\') escaped += '\\\\';
+    else if (character === '\x07') escaped += '\\a';
+    else if (character === '\b') escaped += '\\b';
+    else if (character === '\t') escaped += '\\t';
+    else if (character === '\n') escaped += '\\n';
+    else if (character === '\v') escaped += '\\v';
+    else if (character === '\f') escaped += '\\f';
+    else if (character === '\r') escaped += '\\r';
+    else if (code < 0x20 || code === 0x7f) escaped += '\\x' + code.toString(16) + '\\';
+    else escaped += character;
+  }
+  return "'" + escaped + "'";
+}
+
+function escapeRdfString(value) {
+  assertText(value, 'literal');
+  let escaped = '';
+  for (const character of value) {
+    const code = character.codePointAt(0);
+    if (character === '\\') escaped += '\\\\';
+    else if (character === '"') escaped += '\\"';
+    else if (character === '\t') escaped += '\\t';
+    else if (character === '\n') escaped += '\\n';
+    else if (character === '\r') escaped += '\\r';
+    else if (character === '\b') escaped += '\\b';
+    else if (character === '\f') escaped += '\\f';
+    else if (code < 0x20 || code === 0x7f) {
+      escaped += '\\u' + code.toString(16).padStart(4, '0');
+    } else escaped += character;
+  }
+  return escaped;
+}
+
+function escapeIri(value) {
+  assertIri(value);
+  return value.replace(/[<>"{}|^`\\\u0000-\u0020]/g, (character) =>
+    '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
+function hex(value) {
+  assertText(value, 'blank-node component');
+  return Buffer.from(value, 'utf8').toString('hex');
+}
 function compound(t, name, arity) { return t?.type === 'compound' && t.name === name && t.args.length === arity; }
-function scalar(t, label) { if (!t || !['atom', 'string', 'number'].includes(t.type)) throw new Error(`${label} must be a scalar`); return t.name; }
+function textAtom(t, label) {
+  if (t?.type !== 'atom') throw new Error(label + ' must be an atom');
+  assertText(t.name, label);
+  return t.name;
+}
+
+function assertText(value, label) {
+  if (typeof value !== 'string') throw new Error(label + ' must be text');
+  for (const character of value) {
+    const code = character.codePointAt(0);
+    if (code >= 0xd800 && code <= 0xdfff) throw new Error(label + ' contains an invalid Unicode scalar value');
+  }
+}
+
+function assertIri(value, label = 'IRI') {
+  assertText(value, label);
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(value)) throw new Error(label + ' must be absolute');
+  if (/[\u0000-\u0020<>"{}|^`\\]/u.test(value)) throw new Error(label + ' contains an invalid character');
+}
+
+function normalizedLanguage(value) {
+  if (!/^[A-Za-z]+(?:-[A-Za-z0-9]+)*$/u.test(value)) throw new Error('invalid language tag');
+  return value.toLowerCase();
+}
+
+function assertLiteral(term) {
+  assertText(term.value, 'literal');
+  const language = term.language ?? '';
+  const direction = term.direction ?? '';
+  if (language) {
+    normalizedLanguage(language);
+    if (direction && direction !== 'ltr' && direction !== 'rtl') throw new Error('base direction must be ltr or rtl');
+    return;
+  }
+  if (direction) throw new Error('base direction requires a language tag');
+  assertIri(term.datatype ?? XSD_STRING, 'datatype IRI');
+}
+
+function assertRdfTerm(term) {
+  if (term?.kind === 'namedNode') return assertIri(term.value);
+  if (term?.kind === 'blankNode') {
+    assertText(term.scope, 'blank-node scope');
+    return assertText(term.value, 'blank-node label');
+  }
+  if (term?.kind === 'literal') return assertLiteral(term);
+  if (term?.kind === 'triple') return assertTriple(term.subject, term.predicate, term.object);
+  throw new Error('invalid RDF term');
+}
+
 function assertTriple(subject, predicate, object) {
-  if (!['namedNode', 'blankNode'].includes(subject.kind)) throw new Error('RDF subject must be an IRI or blank node');
-  if (predicate.kind !== 'namedNode') throw new Error('RDF predicate must be an IRI');
-  if (!['namedNode', 'blankNode', 'literal', 'triple'].includes(object.kind)) throw new Error('invalid RDF object');
+  if (!['namedNode', 'blankNode'].includes(subject?.kind)) throw new Error('RDF subject must be an IRI or blank node');
+  if (predicate?.kind !== 'namedNode') throw new Error('RDF predicate must be an IRI');
+  if (!['namedNode', 'blankNode', 'literal', 'triple'].includes(object?.kind)) throw new Error('invalid RDF object');
+  assertRdfTerm(subject);
+  assertRdfTerm(predicate);
+  assertRdfTerm(object);
+}
+
+function assertQuad({ subject, predicate, object, graph }) {
+  assertTriple(subject, predicate, object);
+  if (!['namedNode', 'blankNode', 'defaultGraph'].includes(graph?.kind)) throw new Error('invalid RDF graph');
+  if (graph.kind !== 'defaultGraph') assertRdfTerm(graph);
 }
 
 // Package-neutral aliases.

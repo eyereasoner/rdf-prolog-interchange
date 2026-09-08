@@ -3,6 +3,7 @@ import {
   compileRdfToProlog,
   compileRdfDocumentToProlog,
   extractRdfFromProlog,
+  parseNQuads,
   serializeRdfFromProlog,
 } from '../src/index.mjs';
 import { parseClauses, parseGoalText, parseNumberTokenText } from '../src/prolog-parser.mjs';
@@ -55,6 +56,50 @@ await test('Unicode blank-node labels are preserved through scoped encoding', ()
   );
 });
 
+await test('RPI text atoms preserve ISO controls and hostile-looking RDF data', () => {
+  const input = '<https://example/s> <https://example/p> "bell\\u0007 back\\b tab\\t line\\n vertical\\u000b form\\f return\\r quote\\\" slash\\\\ apostrophe\' ).\\n:- halt.\\n%" .\n';
+  const prolog = compileRdfToProlog(input, { scope: 'doc' });
+  assert.match(prolog, /apostrophe'' \)\./);
+  assert.match(prolog, /\\n:- halt\./);
+  assert.equal(extractRdfFromProlog(prolog), input);
+});
+
+await test('RPI text positions reject Prolog string and number coercions', () => {
+  const suffix = ", iri('https://example/p'), iri('https://example/o'), default_graph).";
+  assert.throws(() => extractRdfFromProlog('rdf(iri("https://example/s")' + suffix), /IRI must be an atom/);
+  assert.throws(
+    () => extractRdfFromProlog(
+      "rdf(iri('https://example/s'), iri('https://example/p'), literal(42, datatype('http://www.w3.org/2001/XMLSchema#integer')), default_graph).",
+    ),
+    /literal must be an atom/,
+  );
+});
+
+await test('RPI validates absolute IRIs, language tags, and base direction', () => {
+  assert.throws(
+    () => parseNQuads('<relative> <https://example/p> <https://example/o> .\n'),
+    /IRI must be absolute/,
+  );
+  assert.throws(
+    () => extractRdfFromProlog(
+      "rdf(iri('https://example/s'), iri('https://example/p'), literal('x', lang('en_us')), default_graph).",
+    ),
+    /invalid language tag/,
+  );
+  assert.throws(
+    () => extractRdfFromProlog(
+      "rdf(iri('https://example/s'), iri('https://example/p'), literal('x', lang('en', 'LTR')), default_graph).",
+    ),
+    /base direction must be ltr or rtl/,
+  );
+  assert.throws(
+    () => extractRdfFromProlog(
+      "rdf(iri('https://example/s'), iri('https://example/p'), literal('x', datatype('relative')), default_graph).",
+    ),
+    /datatype IRI must be absolute/,
+  );
+});
+
 await test('Prolog RDF facts serialize as Turtle from a .ttl-style format', () => {
   const source = `
     rdf(iri('https://example/s'), iri('https://example/p'), literal('hello', datatype('http://www.w3.org/2001/XMLSchema#string')), default_graph).
@@ -80,6 +125,16 @@ await test('only rdf/4 facts are serialized and duplicates are removed', () => {
     note(ignored).
     rdf(iri('https://example/s'), iri('https://example/p'), iri('https://example/o'), default_graph).
     rdf(X, P, O, G) :- other(X, P, O, G).
+    rdf(iri('https://example/s'), iri('https://example/p'), iri('https://example/o'), default_graph).
+  `;
+  assert.equal(extractRdfFromProlog(source), '<https://example/s> <https://example/p> <https://example/o> .\n');
+});
+
+await test('RPI Extraction Profile never executes directives or rules', () => {
+  const source = `
+    :- initialization(halt).
+    note(not_extracted).
+    rdf(X, P, O, G) :- would_execute(X, P, O, G).
     rdf(iri('https://example/s'), iri('https://example/p'), iri('https://example/o'), default_graph).
   `;
   assert.equal(extractRdfFromProlog(source), '<https://example/s> <https://example/p> <https://example/o> .\n');
