@@ -5,6 +5,10 @@ RDF dataset quads to ordinary `rdf/4` Prolog facts and ground `rdf/4` facts back
 to RDF.
 The package contains no Prolog solver.
 
+The short position paper [RDF and Prolog: Two Standards-Based
+Legs](why-rdf-prolog.md) explains why this project connects W3C RDF and ISO
+Prolog without introducing another rule language.
+
 ## RDF/Prolog Interchange specification
 
 The package is the initial implementation experiment for the
