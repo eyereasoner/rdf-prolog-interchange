@@ -31,6 +31,15 @@ existence of an empty named graph. The package also does not implement the
 Runner role: EyeProlog or another Prolog system executes rules before their
 materialized ground results are passed to `prolog-to-rdf`.
 
+RDF and ISO Prolog do not have the same semantics, so the draft states what
+their composition means rather than leaving it implicit. The meaning of a run
+is the least Herbrand model of the encoded `rdf/4` facts together with the
+rule program; published quads are assertions the program makes about the input
+graph, not consequences of it under an RDF entailment regime. See
+[Section 10, Semantic boundary](spec/index.md#10-semantic-boundary), which also
+covers negation-as-failure, blank-node Skolemization, and syntactic literal
+identity.
+
 Its vendored source parser is synchronized with EyeProlog's parser while using
 a minimal standalone term model. See [`EXTRACTION.md`](EXTRACTION.md) for the
 source revision and the intentionally small adaptation boundary.

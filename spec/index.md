@@ -1,6 +1,6 @@
 # RDF/Prolog Interchange 1.0
 
-## Editor's Draft, 8 September 2026
+## Editor's Draft, 9 September 2026
 
 This document is an exploratory specification. It is not an ISO standard, a
 W3C Standard, or a product conformance claim.
@@ -583,7 +583,36 @@ extensions are unreachable during the result query.
 
 ## 10. Semantic boundary
 
-### 10.1 No implicit entailment regime
+### 10.1 Semantics of a run
+
+RDF and ISO Prolog have different semantics. RDF interpretations are
+open-world and monotonic: absence of a triple is not falsity, and adding
+triples never withdraws a consequence. A definite Prolog program denotes its
+least Herbrand model and is evaluated by an ordered, goal-directed search.
+Composing them therefore requires saying what the composite means, rather
+than leaving that to whatever a particular program computes.
+
+For RPI the answer is deliberately narrow. Given an RDF dataset `D` and a rule
+program `P`, let `F` be the ground `rdf/4` facts produced from `D` by
+Sections 6 and 7. The meaning of a run is the least Herbrand model of
+`F` together with `P`, under the semantics of the identified ISO Prolog
+profile, and the published dataset is the decoding of the `result_rdf/4`
+subset of that model selected under Section 9.
+
+Two consequences follow, and both are intended:
+
+- The published quads are **assertions made by the program about `D`**. They
+  are not consequences of `D` under any RDF entailment regime, and Section
+  10.2 applies to any claim otherwise.
+- The composite is monotonic in `D` only when `P` is. A definite program
+  without negation-as-failure is monotonic, so extending `D` can only extend
+  the published dataset. A program using negation-as-failure is not, and
+  Section 10.3 applies.
+
+This is a statement about the composite, not a new entailment regime. It
+locates the logical content in `P` and confines RPI to the boundary.
+
+### 10.2 No implicit entailment regime
 
 Execution of a Prolog program over an RPI encoding does not by itself
 constitute RDF entailment, RDFS entailment, OWL entailment, or any other RDF
@@ -592,7 +621,7 @@ entailment regime.
 If an application claims that its results implement a particular entailment
 regime, that claim belongs to a separate specification or application profile.
 
-### 10.2 Open and closed worlds
+### 10.3 Open and closed worlds
 
 RDF does not generally treat absence of a triple as evidence of falsity.
 Prolog negation-as-failure can do so for a selected goal under the Prolog
@@ -603,14 +632,14 @@ using negation-as-failure MUST define or document the dataset, graph, or
 relation over which closure is assumed when that choice affects published
 results.
 
-### 10.3 Graphs are not quoted formulae
+### 10.4 Graphs are not quoted formulae
 
 An RDF named graph is an RDF graph associated with a graph name. RPI does not
 interpret a named graph as an N3 quoted formula, a modal context, a claim of
 truth, or a provenance assertion. Applications may assign such roles through
 separate vocabularies and rules.
 
-### 10.4 Publication is explicit
+### 10.5 Publication is explicit
 
 Only solutions selected through the result relation are published. A runner
 MUST NOT publish every internal Prolog fact or every successful intermediate
@@ -618,6 +647,40 @@ goal implicitly.
 
 Applications SHOULD publish derived results into a named graph distinct from
 source graphs when provenance, review, or replacement boundaries matter.
+
+### 10.6 Blank nodes are encoded as names
+
+Section 6.2 encodes an RDF blank node as `bnode(Scope, Label)`, a ground term.
+An RDF blank node is existentially quantified; a ground Prolog term is a name.
+The encoding is therefore a Skolemization of `D`.
+
+This is sound for the purpose RPI serves: a Skolemization entails exactly the
+same ground consequences, so a rule program deriving ground results is not
+misled by it. It is not an equivalence. `D` and its encoding do not have the
+same models, and existential consequences of `D` are not recoverable from the
+encoded facts. A rule program MUST NOT treat a `bnode/2` term as an RDF IRI
+or as a stable identifier outside its import scope, as required by Section
+6.2.
+
+### 10.7 Literal identity is syntactic
+
+Section 6.3 requires a literal's lexical form to be preserved and forbids
+canonicalization. Unification and `==/2` compare Prolog terms structurally, so
+two literals that denote the same datatype value but differ lexically are
+distinct RPI terms and do not unify. For example:
+
+```
+literal('0042', datatype('http://www.w3.org/2001/XMLSchema#integer'))
+literal('42', datatype('http://www.w3.org/2001/XMLSchema#integer'))
+```
+
+These are the same xsd:integer value and two different terms.
+
+Datatype value equality is therefore a relation a rule program provides, not a
+property of the encoding. A program that requires value comparison SHOULD
+define an explicit relation for it and SHOULD document the datatypes covered.
+Section 13.5 additionally requires any datatype conversion offered by an
+implementation to keep the original RDF term available.
 
 ## 11. Conformance
 
