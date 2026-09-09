@@ -5,40 +5,18 @@ RDF dataset quads to ordinary `rdf/4` Prolog facts and ground `rdf/4` facts
 back to RDF.
 The package contains no Prolog solver.
 
-The short position paper [RDF and Prolog: Two Standards-Based
-Legs](why-rdf-prolog.md) explains why this project connects W3C RDF and ISO
-Prolog without introducing another rule language.
+RDF supplies the data model; ISO Prolog supplies the programming language.
+This package connects them with two converters and a small term mapping:
 
-## RDF/Prolog Interchange specification
+1. Convert RDF to `rdf/4` facts.
+2. Run your rules in a Prolog engine, if needed.
+3. Write the results as ground `rdf/4` facts and convert them back to RDF.
 
-The package is the initial implementation experiment for the
-[RDF/Prolog Interchange 1.0 editor's draft](spec/index.md). The specification
-extracts the package's term mapping and `result_rdf/4` convention into an
-implementation-neutral contract; it does not make this implementation
-normative.
-
-The current package implements the draft's Importer and Publisher roles,
-RPI-RDF12 terms, the RPI-Quad structure profile, and the safe RPI Extraction
-Publisher profile. In particular, `prolog-to-rdf` parses Prolog source and
-selects ground `rdf/4` facts without executing directives or rules.
-The RPI-RDF12 term-model target is the 7 April 2026 Candidate Recommendation
-Snapshot of RDF 1.2 Concepts; RDF 1.2 remains standards-track work, so this
-target is stated explicitly rather than described as a completed W3C Standard.
-
-The optional RPI-Dataset inventory profile (`rdf_graph/1`), which preserves
-empty named graphs, is not implemented. A quad stream cannot record the
-existence of an empty named graph. The package also does not implement the
-Runner role: EyeProlog or another Prolog system executes rules before their
-materialized ground results are passed to `prolog-to-rdf`.
-
-RDF and ISO Prolog do not have the same semantics, so the draft states what
-their composition means rather than leaving it implicit. The meaning of a run
-is the least Herbrand model of the encoded `rdf/4` facts together with the
-rule program; published quads are assertions the program makes about the input
-graph, not consequences of it under an RDF entailment regime. See
-[Section 10, Semantic boundary](spec/index.md#10-semantic-boundary), which also
-covers negation-as-failure, blank-node Skolemization, and syntactic literal
-identity.
+The [mapping guide](MAPPING.md) explains the representation and its practical
+limits. [Why RDF and Prolog?](why-rdf-prolog.md) explains the choice of tools.
+`prolog-to-rdf` reads facts without executing rules or directives. The
+converter preserves quads, but cannot preserve empty named graphs, which
+have no quads to encode.
 
 Its vendored source parser is synchronized with EyeProlog's parser while using
 a minimal standalone term model. See [`EXTRACTION.md`](EXTRACTION.md) for the
@@ -106,8 +84,10 @@ result_rdf(S, P, O, G).
 write_results.
 ```
 
-`result_rdf/4` is the test query. `write_results/0` prints all its solutions as
-ground `rdf/4` facts, which is exactly the format accepted by `prolog-to-rdf`.
+`result_rdf/4` is the query used by these examples. `write_results/0` prints
+all its solutions as ground `rdf/4` facts, the format accepted by
+`prolog-to-rdf`. Your program can use any query name; the converter only
+reads the resulting `rdf/4` facts.
 See [`examples/README.md`](examples/README.md) for a concrete trust-flow run.
 
 With EyeProlog 1.5.26 or newer, materialize those facts without adding the
@@ -193,7 +173,7 @@ npm test
 ```
 
 The example test discovers all 14 names from the flat directory, verifies the
-five-file contract, roundtrips every checked-in input/output Prolog dataset,
+five-file layout, roundtrips every checked-in input/output Prolog dataset,
 and verifies that every `*-output.ttl|trig` is exactly the `prolog-to-rdf`
 serialization of its matching `*-output.pl`. When `rdf-parse` is installed it
 also regenerates each `*-input.pl` from the original Turtle/TriG source.

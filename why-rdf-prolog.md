@@ -1,115 +1,41 @@
-# RDF and Prolog: Two Standards-Based Legs
+# Why RDF and Prolog?
 
-The most direct and durable foundation for standards-based reasoning is to
-stand on two established standards:
-
-- **W3C RDF** for knowledge representation and interchange;
-- **ISO Prolog** for rules, queries, and reasoning.
-
-RDF and Prolog already solve the two essential parts of the problem. This
-avoids depending on another rule language becoming standardized or widely
-adopted.
+RDF is useful for exchanging graph data. ISO Prolog is useful for writing
+rules and asking questions about it. They can be used together with a small
+converter.
 
 ```text
-                  EyeProlog
-               reasoning brain
-                      |
-            RDF/Prolog Interchange
-              /                 \
-       W3C RDF                   ISO Prolog
-        data leg                 rules leg
+RDF input
+    | rdf-to-prolog
+    v
+rdf/4 facts + your Prolog rules
+    | run a query and write ground rdf/4 results
+    v
+Prolog result facts
+    | prolog-to-rdf
+    v
+RDF output
 ```
 
-- [EyeProlog](https://github.com/eyereasoner/eyeprolog) is the ISO Prolog
-  reasoning brain, producing answers and inspectable proofs.
-- [rdf-prolog-interchange](https://github.com/eyereasoner/rdf-prolog-interchange)
-  implements the reversible interchange boundary between RDF datasets and ISO
-  Prolog.
-- [RDF/Prolog Interchange 1.0](https://github.com/eyereasoner/rdf-prolog-interchange/blob/main/spec/index.md)
-  specifies that boundary independently of any implementation.
+RDF contributes identifiers, literals, blank nodes, and graphs. Prolog
+contributes terms, unification, rules, recursion, and search. The connection
+is simply a choice of Prolog terms for RDF values, documented in the
+[mapping guide](MAPPING.md).
 
-## The processing model
+This package performs the conversions. [EyeProlog](https://github.com/eyereasoner/eyeprolog)
+or another Prolog engine runs the rules. You can inspect the intermediate
+facts, use ordinary Prolog tools, and convert the results back to RDF.
 
-```text
-RDF dataset
-    | reversible RPI encoding
-    v
-ground rdf/4 facts
-    + ISO Prolog rules
-    | query result_rdf/4
-    v
-ground result facts
-    | reversible RPI decoding
-    v
-RDF dataset
-```
+The examples call their result query `result_rdf/4`, but that name is not
+required by the converter. What matters is that the output contains valid,
+ground `rdf/4` facts.
 
-RDF provides global identifiers, literals, blank nodes, triple terms, graphs,
-datasets, and interoperable Web syntaxes. ISO Prolog provides terms, variables,
-unification, clauses, recursion, queries, and standardized execution behavior.
+The rules determine what is inferred. Converting RDF into facts does not
+automatically give a Prolog program RDF entailment semantics, and
+negation-as-failure does not turn missing RDF statements into false ones.
+Literal spelling and blank-node identity also need to be respected when
+writing rules.
 
-## RDF/Prolog Interchange
-
-RDF/Prolog Interchange, or RPI, is not a third rule language or a third
-architectural leg. It is the narrow interchange contract between RDF and ISO
-Prolog. It defines what neither underlying standard defines: the reversible
-representation of RDF datasets as ground Prolog facts and the explicit
-publication of selected Prolog answers as RDF.
-
-Its core relations are:
-
-```prolog
-rdf(Subject, Predicate, Object, Graph).
-result_rdf(Subject, Predicate, Object, Graph).
-```
-
-RPI preserves RDF term kinds, lexical forms, blank-node identity, RDF 1.2
-triple terms, and default and named graphs. Only ground answers explicitly
-selected through `result_rdf/4` are published. RDF conversion does not execute
-arbitrary Prolog source, and the rules remain ordinary portable ISO Prolog.
-
-RPI is comparable to a language binding or interchange profile. It connects
-two standards without redefining either of them.
-
-### What the composite means
-
-The two legs do not have the same semantics. RDF interpretations are
-open-world and monotonic; a definite Prolog program denotes its least Herbrand
-model and is evaluated by ordered, goal-directed search. Composing them raises
-a fair question: what does the composite entail, beyond whatever a particular
-rule set happens to compute?
-
-RPI answers it narrowly rather than avoiding it. The meaning of a run is the
-least Herbrand model of the encoded `rdf/4` facts together with the rule
-program, and the published dataset is the `result_rdf/4` subset of that model.
-The published quads are assertions the program makes about the input graph,
-not consequences of that graph under RDF, RDFS, or OWL semantics. Where the
-program is a definite program the composite stays monotonic in the input;
-where it uses negation-as-failure it does not, and the closed-world boundary
-has to be declared.
-
-Two properties of the encoding matter for the same reason. Blank nodes become
-ground `bnode/2` terms, so the encoded facts are a Skolemization: sound for
-ground consequences, not equivalent to the source graph. Literal lexical forms
-are preserved rather than canonicalized, so value-equal literals such as
-`'0042'` and `'42'` typed as `xsd:integer` are distinct terms; datatype value
-equality is a relation a program supplies.
-
-[Section 10 of the specification](https://github.com/eyereasoner/rdf-prolog-interchange/blob/main/spec/index.md#10-semantic-boundary)
-states all of this normatively.
-
-## EyeProlog
-
-EyeProlog makes the ISO Prolog leg practical. It provides a documented and
-tested ISO profile, keeps extensions explicit, and produces inspectable
-answers and proofs. The RDF converter remains independent of the solver, so
-RDF data, Prolog rules, intermediate results, and RDF output remain separate,
-reproducible artifacts.
-
-N3, SPARQL-RL, and RIF are not required by this architecture. They may be
-supported as adapters or additional entry points, but they are not foundations
-on which RDF/Prolog reasoning depends.
-
-> **Stand on two standards-based legs: W3C RDF for knowledge and ISO Prolog for
-> reasoning. RDF/Prolog Interchange connects them without inventing either one
-> again.**
+The useful pieces are the converters, the documented mapping, and the
+[examples you can run](examples/README.md). RDF and ISO Prolog provide the
+existing foundations.

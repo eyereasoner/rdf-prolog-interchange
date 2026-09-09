@@ -56,7 +56,7 @@ await test('Unicode blank-node labels are preserved through scoped encoding', ()
   );
 });
 
-await test('RPI text atoms preserve ISO controls and hostile-looking RDF data', () => {
+await test('RDF text atoms preserve ISO controls and hostile-looking data', () => {
   const input = '<https://example/s> <https://example/p> "bell\\u0007 back\\b tab\\t line\\n vertical\\u000b form\\f return\\r quote\\\" slash\\\\ apostrophe\' ).\\n:- halt.\\n%" .\n';
   const prolog = compileRdfToProlog(input, { scope: 'doc' });
   assert.match(prolog, /apostrophe'' \)\./);
@@ -64,7 +64,7 @@ await test('RPI text atoms preserve ISO controls and hostile-looking RDF data', 
   assert.equal(extractRdfFromProlog(prolog), input);
 });
 
-await test('RPI text positions reject Prolog string and number coercions', () => {
+await test('RDF text positions reject Prolog string and number coercions', () => {
   const suffix = ", iri('https://example/p'), iri('https://example/o'), default_graph).";
   assert.throws(() => extractRdfFromProlog('rdf(iri("https://example/s")' + suffix), /IRI must be an atom/);
   assert.throws(
@@ -75,7 +75,7 @@ await test('RPI text positions reject Prolog string and number coercions', () =>
   );
 });
 
-await test('RPI validates absolute IRIs, language tags, and base direction', () => {
+await test('RDF conversion validates absolute IRIs, language tags, and base direction', () => {
   assert.throws(
     () => parseNQuads('<relative> <https://example/p> <https://example/o> .\n'),
     /IRI must be absolute/,
@@ -130,7 +130,7 @@ await test('only rdf/4 facts are serialized and duplicates are removed', () => {
   assert.equal(extractRdfFromProlog(source), '<https://example/s> <https://example/p> <https://example/o> .\n');
 });
 
-await test('RPI Extraction Profile never executes directives or rules', () => {
+await test('RDF extraction never executes directives or rules', () => {
   const source = `
     :- initialization(halt).
     note(not_extracted).
